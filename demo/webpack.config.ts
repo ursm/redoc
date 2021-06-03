@@ -1,7 +1,7 @@
 import * as CopyWebpackPlugin from 'copy-webpack-plugin';
 import ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 import * as HtmlWebpackPlugin from 'html-webpack-plugin';
-import { compact } from 'lodash';
+// import { compact } from 'lodash';
 import { resolve } from 'path';
 import * as webpack from 'webpack';
 
@@ -14,37 +14,49 @@ function root(filename) {
   return resolve(__dirname + '/' + filename);
 }
 
-const tsLoader = (env) => ({
-  loader: 'ts-loader',
-  options: {
-    compilerOptions: {
-      module: env.bench ? 'esnext' : 'es2015',
-      declaration: false,
-    },
-  },
-});
-
 const babelLoader = () => ({
   loader: 'babel-loader',
   options: {
-    generatorOpts: {
-      decoratorsBeforeExport: true,
-    },
-    plugins: compact([
-      ['@babel/plugin-syntax-typescript', { isTSX: true }],
-      ['@babel/plugin-syntax-decorators', { legacy: true }],
-      '@babel/plugin-syntax-dynamic-import',
-      '@babel/plugin-syntax-jsx',
-    ]),
+    babelrc: false,
+    presets: [
+      [
+        '@babel/preset-env',
+        { useBuiltIns: 'entry', corejs: 3, exclude: ['transform-typeof-symbol'], targets: 'defaults'},
+      ],
+      ['@babel/preset-react', { development: false, runtime: 'automatic' }],
+      '@babel/preset-typescript',
+    ],
+    plugins: [
+      ['@babel/plugin-proposal-decorators', {legacy: true}],
+      ['@babel/plugin-proposal-class-properties', { loose: false }],
+      [
+        '@babel/plugin-transform-runtime',
+        {
+          corejs: false,
+          helpers: true,
+          // By default, babel assumes babel/runtime version 7.0.0-beta.0,
+          // explicitly resolving to match the provided helper functions.
+          // https://github.com/babel/babel/issues/10261
+          // eslint-disable-next-line import/no-internal-modules
+          version: require('@babel/runtime/package.json').version,
+          regenerator: true,
+        },
+      ],
+      '@babel/plugin-proposal-optional-chaining',
+      '@babel/plugin-proposal-nullish-coalescing-operator',
+      'react-hot-loader/babel',
+
+      // '@babel/plugin-syntax-dynamic-import',
+    ],
   },
 });
 
-const babelHotLoader = {
-  loader: 'babel-loader',
-  options: {
-    plugins: ['react-hot-loader/babel'],
-  },
-};
+// const babelHotLoader = {
+//   loader: 'babel-loader',
+//   options: {
+//     plugins: ['react-hot-loader/babel'],
+//   },
+// };
 
 export default (env: { playground?: boolean; bench?: boolean } = {}, { mode }) => ({
   entry: [
@@ -76,8 +88,8 @@ export default (env: { playground?: boolean; bench?: boolean } = {}, { mode }) =
     alias:
       mode !== 'production'
         ? {
-          'react-dom': '@hot-loader/react-dom',
-        }
+            'react-dom': '@hot-loader/react-dom',
+          }
         : {},
   },
 
@@ -101,12 +113,21 @@ export default (env: { playground?: boolean; bench?: boolean } = {}, { mode }) =
       { test: [/\.eot$/, /\.gif$/, /\.woff$/, /\.svg$/, /\.ttf$/], use: 'null-loader' },
       {
         test: /\.tsx?$/,
-        use: compact([
-          mode !== 'production' ? babelHotLoader : undefined,
-          tsLoader(env),
+        use: [
+          // mode !== 'production' ? babelHotLoader : undefined,
+          // tsLoader(env),
           babelLoader(),
-        ]),
-        exclude: [/node_modules/],
+        ],
+        exclude: {
+          test: /node_modules/,
+          not: [
+            /swagger2openapi/,
+            /reftools/,
+            /oas-resolver/,
+            /oas-kit-common/,
+            /oas-schema-walker/,
+          ],
+        },
       },
       {
         test: /\.css$/,
@@ -117,20 +138,20 @@ export default (env: { playground?: boolean; bench?: boolean } = {}, { mode }) =
           },
         },
       },
-      {
-        test: /node_modules\/(swagger2openapi|reftools|oas-resolver|oas-kit-common|oas-schema-walker)\/.*\.js$/,
-        use: {
-          loader: 'ts-loader',
-          options: {
-            transpileOnly: true,
-            instance: 'ts2js-transpiler-only',
-            compilerOptions: {
-              allowJs: true,
-              declaration: false,
-            },
-          },
-        },
-      },
+      // {
+      //   test: /node_modules\/(swagger2openapi|reftools|oas-resolver|oas-kit-common|oas-schema-walker)\/.*\.js$/,
+      //   use: {
+      //     loader: 'ts-loader',
+      //     options: {
+      //       transpileOnly: true,
+      //       instance: 'ts2js-transpiler-only',
+      //       compilerOptions: {
+      //         allowJs: true,
+      //         declaration: false,
+      //       },
+      //     },
+      //   },
+      // },
     ],
   },
   plugins: [
@@ -138,8 +159,8 @@ export default (env: { playground?: boolean; bench?: boolean } = {}, { mode }) =
       __REDOC_VERSION__: VERSION,
       __REDOC_REVISION__: REVISION,
     }),
-    new webpack.NamedModulesPlugin(),
-    new webpack.optimize.ModuleConcatenationPlugin(),
+    // new webpack.NamedModulesPlugin(),
+    // new webpack.optimize.ModuleConcatenationPlugin(),
     new HtmlWebpackPlugin({
       template: env.playground
         ? 'demo/playground/index.html'
